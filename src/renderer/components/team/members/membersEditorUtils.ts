@@ -348,6 +348,9 @@ export function buildMembersFromDrafts(
       if (mcpPolicy) {
         result.mcpPolicy = mcpPolicy;
       }
+      if (member.accountBindingByProvider !== undefined) {
+        result.accountBindingByProvider = member.accountBindingByProvider;
+      }
       return result;
     })
     .filter((member): member is NonNullable<typeof member> => member !== null);

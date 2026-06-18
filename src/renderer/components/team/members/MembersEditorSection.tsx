@@ -237,95 +237,81 @@ export const MembersEditorSection = ({
     }
   };
 
+  // Generic member updater: applies a partial patch to one member. Changing providerId
+  // resets the provider-scoped fields (backend/model/effort/fastMode). All the per-field
+  // handlers below delegate here so there is a single update path.
+  const updateMemberFields = (memberId: string, patch: Partial<MemberDraft>): void => {
+    emitMembersChange(
+      members.map((c) => {
+        if (c.id !== memberId) {
+          return c;
+        }
+        const next: MemberDraft = { ...c, ...patch };
+        if (patch.providerId !== undefined) {
+          const previousProviderId = c.providerId ?? inheritedProviderId;
+          if (previousProviderId !== patch.providerId) {
+            next.providerBackendId = migrateProviderBackendId(
+              patch.providerId,
+              c.providerBackendId
+            );
+            next.model = '';
+            next.effort = undefined;
+            next.fastMode = undefined;
+          }
+        }
+        return next;
+      })
+    );
+  };
+
   const updateMemberName = (memberId: string, name: string): void => {
-    emitMembersChange(members.map((c) => (c.id === memberId ? { ...c, name } : c)));
+    updateMemberFields(memberId, { name });
   };
 
   const updateMemberRole = (memberId: string, roleSelection: string): void => {
     const resolvedRole = roleSelection === NO_ROLE ? '' : roleSelection;
-    emitMembersChange(
-      members.map((c) =>
-        c.id === memberId
-          ? {
-              ...c,
-              roleSelection: resolvedRole,
-              customRole: resolvedRole === CUSTOM_ROLE ? c.customRole : '',
-            }
-          : c
-      )
-    );
+    updateMemberFields(memberId, {
+      roleSelection: resolvedRole,
+      ...(resolvedRole === CUSTOM_ROLE ? {} : { customRole: '' }),
+    });
   };
 
   const updateMemberCustomRole = (memberId: string, customRole: string): void => {
-    emitMembersChange(members.map((c) => (c.id === memberId ? { ...c, customRole } : c)));
+    updateMemberFields(memberId, { customRole });
   };
 
   const updateMemberWorkflow = (memberId: string, workflow: string): void => {
-    emitMembersChange(members.map((c) => (c.id === memberId ? { ...c, workflow } : c)));
+    updateMemberFields(memberId, { workflow });
   };
 
   const updateMemberWorkflowChips = (memberId: string, workflowChips: InlineChip[]): void => {
-    emitMembersChange(members.map((c) => (c.id === memberId ? { ...c, workflowChips } : c)));
+    updateMemberFields(memberId, { workflowChips });
   };
 
   const updateMemberProvider = (memberId: string, providerId: TeamProviderId): void => {
-    emitMembersChange(
-      members.map((c) =>
-        c.id === memberId
-          ? (() => {
-              const previousProviderId = c.providerId ?? inheritedProviderId;
-              const providerChanged = previousProviderId !== providerId;
-              return {
-                ...c,
-                providerId,
-                providerBackendId: migrateProviderBackendId(providerId, c.providerBackendId),
-                model: providerChanged ? '' : c.model,
-                effort: providerChanged ? undefined : c.effort,
-                fastMode: providerChanged ? undefined : c.fastMode,
-              };
-            })()
-          : c
-      )
-    );
+    updateMemberFields(memberId, { providerId });
   };
 
   const updateMemberModel = (memberId: string, model: string): void => {
-    emitMembersChange(members.map((c) => (c.id === memberId ? { ...c, model } : c)));
+    updateMemberFields(memberId, { model });
   };
 
   const updateMemberEffort = (memberId: string, effort: string): void => {
-    emitMembersChange(
-      members.map((c) =>
-        c.id === memberId
-          ? {
-              ...c,
-              effort: isTeamEffortLevel(effort) ? effort : undefined,
-            }
-          : c
-      )
-    );
+    updateMemberFields(memberId, { effort: isTeamEffortLevel(effort) ? effort : undefined });
   };
 
   const updateMemberIsolation = (memberId: string, enabled: boolean): void => {
     if (enabled && worktreeIsolationDisabledReason) {
       return;
     }
-    emitMembersChange(
-      members.map((c) =>
-        c.id === memberId ? { ...c, isolation: enabled ? 'worktree' : undefined } : c
-      )
-    );
+    updateMemberFields(memberId, { isolation: enabled ? 'worktree' : undefined });
   };
 
   const updateMemberMcpPolicy = (memberId: string, mcpPolicy: MemberDraft['mcpPolicy']): void => {
     if (agentTeamsMcpLockedForAll) {
       return;
     }
-    emitMembersChange(
-      members.map((c) =>
-        c.id === memberId ? { ...c, mcpPolicy: normalizeTeamMemberMcpPolicy(mcpPolicy) } : c
-      )
-    );
+    updateMemberFields(memberId, { mcpPolicy: normalizeTeamMemberMcpPolicy(mcpPolicy) });
   };
 
   const updateAgentTeamsMcpLock = (enabled: boolean): void => {
@@ -544,6 +530,7 @@ export const MembersEditorSection = ({
                   onProviderChange={updateMemberProvider}
                   onModelChange={updateMemberModel}
                   onEffortChange={updateMemberEffort}
+                  onMemberFieldsChange={updateMemberFields}
                   showWorktreeIsolationControls={showWorktreeIsolationControls}
                   worktreeIsolationDisabledReason={worktreeIsolationDisabledReason}
                   onWorktreeIsolationChange={updateMemberIsolation}

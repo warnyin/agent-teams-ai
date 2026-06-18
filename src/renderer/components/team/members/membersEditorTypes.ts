@@ -1,5 +1,6 @@
 import type { InlineChip } from '@renderer/types/inlineChip';
 import type {
+  AccountBindingByProvider,
   EffortLevel,
   TeamFastMode,
   TeamMemberMcpPolicy,
@@ -22,6 +23,8 @@ export interface MemberDraft {
   effort?: EffortLevel;
   fastMode?: TeamFastMode;
   mcpPolicy?: TeamMemberMcpPolicy;
+  /** Per-member, per-provider account binding (e.g. anthropic → CLAUDE_CONFIG_DIR). */
+  accountBindingByProvider?: AccountBindingByProvider;
   removedAt?: number | string | null;
 }
 

@@ -21,11 +21,11 @@ export interface TeamMember {
   cwd?: string;
   removedAt?: number;
   /**
-   * Per-member Claude account binding (a CLAUDE_CONFIG_DIR). The orchestrator runtime
-   * reads this from config.json and spawns this teammate under that account. Null = the
-   * default account; undefined = inherit the team's account. (issue #27)
+   * Per-member, per-provider account binding. The orchestrator runtime reads this from
+   * config.json and spawns this teammate under the bound account (for anthropic that means
+   * CLAUDE_CONFIG_DIR). See {@link AccountBindingByProvider}.
    */
-  claudeConfigDirBinding?: string | null;
+  accountBindingByProvider?: AccountBindingByProvider;
 }
 
 export type TeamMemberMcpScope = 'user' | 'project' | 'local';
@@ -49,11 +49,11 @@ export interface TeamConfig {
   leadSessionId?: string;
   sessionHistory?: string[];
   /**
-   * Per-team Claude account binding: the `CLAUDE_CONFIG_DIR` this team's runtime should
-   * use. Null/undefined means use the app's global/default account. The default account
-   * must bind to null (never `~/.claude`) — see issue #27.
+   * Team-level (lead) per-provider account binding. See {@link AccountBindingByProvider}.
+   * For anthropic the value is a CLAUDE_CONFIG_DIR; the default account must bind to null
+   * (never `~/.claude`) — see issue #27.
    */
-  claudeConfigDirBinding?: string | null;
+  accountBindingByProvider?: AccountBindingByProvider;
   /** ISO timestamp — soft delete marker. If set, the team is considered deleted. */
   deletedAt?: string;
 }
@@ -981,6 +981,14 @@ export interface TeamViewSnapshot {
 
 export type EffortLevel = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 export type TeamProviderId = 'anthropic' | 'codex' | 'gemini' | 'opencode';
+
+/**
+ * Per-provider account binding. Maps a provider to the account it should run under
+ * (for `anthropic` the value is a CLAUDE_CONFIG_DIR; null = that provider's default
+ * account). Lets a team or member bind each provider to a distinct account, and scales
+ * to future providers (gemini, codex, github, ...) without new fields.
+ */
+export type AccountBindingByProvider = Partial<Record<TeamProviderId, string | null>>;
 export type TeamProviderBackendId =
   | 'auto'
   | 'adapter'
@@ -1018,8 +1026,8 @@ export interface TeamLaunchRequest {
   prompt?: string;
   providerId?: TeamProviderId;
   providerBackendId?: TeamProviderBackendId;
-  /** Per-team Claude account binding (a CLAUDE_CONFIG_DIR). Null/undefined = default account. */
-  claudeConfigDirBinding?: string | null;
+  /** Per-provider account binding (anthropic → CLAUDE_CONFIG_DIR). See AccountBindingByProvider. */
+  accountBindingByProvider?: AccountBindingByProvider;
   model?: string;
   effort?: EffortLevel;
   fastMode?: TeamFastMode;
@@ -1426,8 +1434,8 @@ export interface TeamProvisioningMemberInput {
   effort?: EffortLevel;
   fastMode?: TeamFastMode;
   mcpPolicy?: TeamMemberMcpPolicy;
-  /** Per-member Claude account binding (a CLAUDE_CONFIG_DIR). Null = default account. */
-  claudeConfigDirBinding?: string | null;
+  /** Per-member, per-provider account binding. See AccountBindingByProvider. */
+  accountBindingByProvider?: AccountBindingByProvider;
 }
 
 export type TeamWorktreeGitBlockReason =
@@ -1458,8 +1466,8 @@ export interface TeamCreateRequest {
   prompt?: string;
   providerId?: TeamProviderId;
   providerBackendId?: TeamProviderBackendId;
-  /** Per-team Claude account binding (a CLAUDE_CONFIG_DIR). Null/undefined = default account. */
-  claudeConfigDirBinding?: string | null;
+  /** Per-provider account binding (anthropic → CLAUDE_CONFIG_DIR). See AccountBindingByProvider. */
+  accountBindingByProvider?: AccountBindingByProvider;
   model?: string;
   effort?: EffortLevel;
   fastMode?: TeamFastMode;

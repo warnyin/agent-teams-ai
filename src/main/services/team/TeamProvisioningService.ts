@@ -21176,7 +21176,7 @@ export class TeamProvisioningService {
         teamName: request.teamName,
         authMaterialId: runtimeAuthMaterialId,
         allowAnthropicApiKeyHelper: true,
-        claudeConfigDir: request.claudeConfigDirBinding ?? null,
+        claudeConfigDir: request.accountBindingByProvider?.anthropic ?? null,
       };
       const provisioningEnv = await this.buildProvisioningEnv(
         request.providerId,
@@ -22577,7 +22577,7 @@ export class TeamProvisioningService {
       description: request.description,
       color: request.color,
       projectPath: request.cwd,
-      claudeConfigDirBinding: request.claudeConfigDirBinding ?? null,
+      accountBindingByProvider: request.accountBindingByProvider,
       members: [
         {
           name: 'team-lead',
@@ -22598,7 +22598,7 @@ export class TeamProvisioningService {
           effort: member.effort,
           mcpPolicy: normalizeTeamMemberMcpPolicy(member.mcpPolicy),
           cwd: member.cwd?.trim() || undefined,
-          claudeConfigDirBinding: member.claudeConfigDirBinding ?? null,
+          accountBindingByProvider: member.accountBindingByProvider,
         })),
       ],
     };
@@ -22927,7 +22927,7 @@ export class TeamProvisioningService {
         teamName: request.teamName,
         authMaterialId: runId,
         allowAnthropicApiKeyHelper: true,
-        claudeConfigDir: request.claudeConfigDirBinding ?? null,
+        claudeConfigDir: request.accountBindingByProvider?.anthropic ?? null,
       };
 
       const provisioningEnv = await this.buildProvisioningEnv(
@@ -37658,7 +37658,7 @@ export class TeamProvisioningService {
       const persistedTeamConfig = await this.readConfigSnapshot(
         options.teamRuntimeAuth.teamName
       ).catch(() => null);
-      teamClaudeConfigBinding = persistedTeamConfig?.claudeConfigDirBinding ?? null;
+      teamClaudeConfigBinding = persistedTeamConfig?.accountBindingByProvider?.anthropic ?? null;
     }
     const claudeConfigResolution = resolveTeamClaudeConfigDir({
       binding: teamClaudeConfigBinding,

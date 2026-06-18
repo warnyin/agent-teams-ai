@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
+import {
+  ClaudeAccountPicker,
+  toAccountOptionViewModels,
+  useClaudeAccounts,
+} from '@features/claude-account/renderer';
 import { useAppTranslation } from '@features/localization/renderer';
 import { ProviderBrandLogo } from '@renderer/components/common/ProviderBrandLogo';
 import { AnthropicExtraUsageWarning } from '@renderer/components/team/dialogs/AnthropicExtraUsageWarning';
@@ -75,6 +80,8 @@ interface MemberDraftRowProps {
   onProviderChange: (id: string, providerId: TeamProviderId) => void;
   onModelChange: (id: string, model: string) => void;
   onEffortChange: (id: string, effort: string) => void;
+  /** Generic member-field updater (applies a partial patch to this member). */
+  onMemberFieldsChange?: (id: string, patch: Partial<MemberDraft>) => void;
   inheritedProviderId?: TeamProviderId;
   inheritedModel?: string;
   inheritedEffort?: EffortLevel;
@@ -137,6 +144,7 @@ export const MemberDraftRow = ({
   onProviderChange,
   onModelChange,
   onEffortChange,
+  onMemberFieldsChange,
   inheritedProviderId = 'anthropic',
   inheritedModel = '',
   inheritedEffort,
@@ -338,6 +346,35 @@ export const MemberDraftRow = ({
   const effectiveProviderId = forceInheritedModelSettings
     ? inheritedProviderId
     : (member.providerId ?? inheritedProviderId);
+  const isAnthropicMember = effectiveProviderId === 'anthropic';
+  const { accounts: claudeAccounts } = useClaudeAccounts({ enabled: isAnthropicMember });
+  const claudeAccountOptions = useMemo(
+    () => toAccountOptionViewModels(claudeAccounts),
+    [claudeAccounts]
+  );
+  const memberAnthropicBinding = member.accountBindingByProvider?.anthropic ?? null;
+  const selectedClaudeAccountId = useMemo(() => {
+    if (memberAnthropicBinding) {
+      const match = claudeAccounts.find((account) => account.configDir === memberAnthropicBinding);
+      if (match) {
+        return match.id;
+      }
+    }
+    return claudeAccounts.find((account) => account.isDefault)?.id ?? null;
+  }, [claudeAccounts, memberAnthropicBinding]);
+  const handleClaudeAccountSelect = useCallback(
+    (accountId: string): void => {
+      const account = claudeAccounts.find((candidate) => candidate.id === accountId);
+      if (!account || !onMemberFieldsChange) {
+        return;
+      }
+      const binding = account.isDefault ? null : account.configDir;
+      onMemberFieldsChange(member.id, {
+        accountBindingByProvider: { ...member.accountBindingByProvider, anthropic: binding },
+      });
+    },
+    [claudeAccounts, onMemberFieldsChange, member.id, member.accountBindingByProvider]
+  );
   const effectiveModel = forceInheritedModelSettings
     ? inheritedModel
     : (member.model ?? inheritedModel);
@@ -906,6 +943,14 @@ export const MemberDraftRow = ({
                   modelUnavailableReasonByProvider?.[effectiveProviderId]
                 }
               />
+              {isAnthropicMember && onMemberFieldsChange && claudeAccountOptions.length > 0 ? (
+                <ClaudeAccountPicker
+                  options={claudeAccountOptions}
+                  selectedAccountId={selectedClaudeAccountId}
+                  onSelect={handleClaudeAccountSelect}
+                  disabled={lockProviderModel}
+                />
+              ) : null}
               <EffortLevelSelector
                 value={effectiveEffort ?? ''}
                 onValueChange={(value) => {

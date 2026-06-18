@@ -1805,8 +1805,8 @@ export const CreateTeamDialog = ({
       prompt: prompt.trim() || undefined,
       providerId: selectedProviderId,
       providerBackendId: selectedProviderBackendId ?? undefined,
-      claudeConfigDirBinding:
-        selectedProviderId === 'anthropic' ? selectedClaudeConfigDir : undefined,
+      accountBindingByProvider:
+        selectedProviderId === 'anthropic' ? { anthropic: selectedClaudeConfigDir } : undefined,
       model: effectiveModel,
       effort: (selectedEffortForCurrentSelection as EffortLevel) || undefined,
       fastMode:
