@@ -5,6 +5,7 @@ import { api, isElectronMode } from '@renderer/api';
 import type {
   ClaudeAccountDto,
   ClaudeAccountSnapshotDto,
+  CreateClaudeAccountProfileOptions,
 } from '@features/claude-account/contracts';
 
 export interface UseClaudeAccountsResult {
@@ -13,6 +14,8 @@ export interface UseClaudeAccountsResult {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  /** Creates a new `.claude-profile-NN` account and runs login (opens the browser). */
+  createProfile: (options?: CreateClaudeAccountProfileOptions) => Promise<void>;
 }
 
 /**
@@ -45,6 +48,28 @@ export function useClaudeAccounts(options?: { enabled?: boolean }): UseClaudeAcc
       setLoading(false);
     }
   }, [active]);
+
+  const createProfile = useCallback(
+    async (createOptions?: CreateClaudeAccountProfileOptions) => {
+      if (!active) {
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const next = await api.createClaudeAccountProfile(createOptions);
+        setSnapshot(next);
+      } catch (nextError) {
+        const message =
+          nextError instanceof Error ? nextError.message : 'Failed to add Claude account';
+        setError(message);
+        throw nextError instanceof Error ? nextError : new Error(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [active]
+  );
 
   useEffect(() => {
     if (!active) {
@@ -94,7 +119,8 @@ export function useClaudeAccounts(options?: { enabled?: boolean }): UseClaudeAcc
       loading,
       error,
       refresh,
+      createProfile,
     }),
-    [snapshot, loading, error, refresh]
+    [snapshot, loading, error, refresh, createProfile]
   );
 }

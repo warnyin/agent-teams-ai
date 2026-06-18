@@ -1,3 +1,5 @@
+import { mkdir } from 'node:fs/promises';
+
 import { ClaudeBinaryResolver } from '@main/services/team/ClaudeBinaryResolver';
 import { execCli } from '@main/utils/childProcess';
 import { buildEnrichedEnv } from '@main/utils/cliEnv';
@@ -6,6 +8,7 @@ import { getAutoDetectedClaudeBasePath, getHomeDir } from '@main/utils/pathDecod
 import { listClaudeAccounts } from '../../core/application/listAccounts';
 import { ClaudeAccountSnapshotPresenter } from '../adapters/output/presenters/ClaudeAccountSnapshotPresenter';
 import { ClaudeAuthStatusProbe } from '../infrastructure/ClaudeAuthStatusProbe';
+import { createClaudeProfileAndLogin } from '../infrastructure/createClaudeProfile';
 import { ClaudeConfigDirDiscovery } from '../infrastructure/discoverClaudeConfigDirs';
 
 import type {
@@ -14,16 +17,22 @@ import type {
   ClockPort,
   LoggerPort,
 } from '../../core/application/ports';
-import type { ClaudeAccountSnapshotDto } from '@features/claude-account/contracts';
+import type {
+  ClaudeAccountSnapshotDto,
+  CreateClaudeAccountProfileOptions,
+} from '@features/claude-account/contracts';
 import type { BrowserWindow } from 'electron';
 
 const DEFAULT_SNAPSHOT_CACHE_TTL_MS = 30_000;
+const LOGIN_TIMEOUT_MS = 300_000;
 
 export interface ClaudeAccountFeatureFacade {
   /** Returns a cached snapshot when fresh, otherwise refreshes. */
   getSnapshot(): Promise<ClaudeAccountSnapshotDto>;
   /** Forces a fresh discovery + probe and broadcasts the result. */
   refreshSnapshot(): Promise<ClaudeAccountSnapshotDto>;
+  /** Creates a new `~/.claude-profile-NN` account and logs into it, then refreshes. */
+  createProfile(options?: CreateClaudeAccountProfileOptions): Promise<ClaudeAccountSnapshotDto>;
   setMainWindow(window: BrowserWindow | null): void;
   dispose(): void;
 }
@@ -95,6 +104,25 @@ export function createClaudeAccountFeature(
       return refresh();
     },
     refreshSnapshot(): Promise<ClaudeAccountSnapshotDto> {
+      return refresh();
+    },
+    async createProfile(
+      options?: CreateClaudeAccountProfileOptions
+    ): Promise<ClaudeAccountSnapshotDto> {
+      await createClaudeProfileAndLogin({
+        homeDir: getHomeDir(),
+        listExistingConfigDirs: async () =>
+          (await discovery.discover()).map((info) => info.configDir),
+        ensureDir: async (dir) => {
+          await mkdir(dir, { recursive: true });
+        },
+        resolveBinary: () => ClaudeBinaryResolver.resolve(),
+        buildEnv: (binaryPath) => buildEnrichedEnv(binaryPath),
+        runLogin: async (binaryPath, args, env) => {
+          await execCli(binaryPath, args, { timeout: LOGIN_TIMEOUT_MS, env });
+        },
+        email: options?.email,
+      });
       return refresh();
     },
     setMainWindow(window: BrowserWindow | null): void {

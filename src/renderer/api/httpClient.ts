@@ -286,6 +286,9 @@ export class HttpAPIClient implements ElectronAPI {
   refreshClaudeAccountSnapshot = (): Promise<ClaudeAccountSnapshotDto> =>
     Promise.reject(new Error('Claude account bridge is unavailable in browser mode'));
 
+  createClaudeAccountProfile = (): Promise<ClaudeAccountSnapshotDto> =>
+    Promise.reject(new Error('Claude account bridge is unavailable in browser mode'));
+
   onClaudeAccountSnapshotChanged =
     (_callback: (event: unknown, snapshot: ClaudeAccountSnapshotDto) => void): (() => void) =>
     () =>

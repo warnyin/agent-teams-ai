@@ -1,4 +1,5 @@
 import {
+  CLAUDE_ACCOUNT_CREATE_PROFILE,
   CLAUDE_ACCOUNT_GET_SNAPSHOT,
   CLAUDE_ACCOUNT_REFRESH_SNAPSHOT,
   CLAUDE_ACCOUNT_SNAPSHOT_CHANGED,
@@ -17,6 +18,10 @@ export function createClaudeAccountBridge({
   return {
     getClaudeAccountSnapshot: () => ipcRenderer.invoke(CLAUDE_ACCOUNT_GET_SNAPSHOT),
     refreshClaudeAccountSnapshot: () => ipcRenderer.invoke(CLAUDE_ACCOUNT_REFRESH_SNAPSHOT),
+    createClaudeAccountProfile: (options) =>
+      options === undefined
+        ? ipcRenderer.invoke(CLAUDE_ACCOUNT_CREATE_PROFILE)
+        : ipcRenderer.invoke(CLAUDE_ACCOUNT_CREATE_PROFILE, options),
     onClaudeAccountSnapshotChanged: (callback) => {
       ipcRenderer.on(
         CLAUDE_ACCOUNT_SNAPSHOT_CHANGED,

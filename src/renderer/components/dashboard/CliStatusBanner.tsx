@@ -80,6 +80,7 @@ import {
   Loader2,
   LogIn,
   LogOut,
+  Plus,
   Puzzle,
   RefreshCw,
   SlidersHorizontal,
@@ -868,7 +869,14 @@ const InstalledBanner = ({
   const runtimeLabel = formatRuntimeLabel(cliStatus);
   const showCollapseControl = visibleProviders.length > 0;
   const showExpandedContent = !providersCollapsed;
-  const { accountsByProvider } = useProviderAccounts({ enabled: showExpandedContent });
+  const { accountsByProvider, createAccount } = useProviderAccounts({
+    enabled: showExpandedContent,
+  });
+  const [addingAnthropicAccount, setAddingAnthropicAccount] = useState(false);
+  const handleAddAnthropicAccount = useCallback(() => {
+    setAddingAnthropicAccount(true);
+    void createAccount('anthropic').finally(() => setAddingAnthropicAccount(false));
+  }, [createAccount]);
   const runtimeAuthSummary = formatRuntimeAuthSummary(
     cliStatus,
     visibleProviders,
@@ -1002,6 +1010,22 @@ const InstalledBanner = ({
                       onRefresh={() => onProviderRefresh(provider.providerId)}
                     />
                   ))}
+                  {provider.providerId === 'anthropic' ? (
+                    <button
+                      onClick={handleAddAnthropicAccount}
+                      disabled={addingAnthropicAccount || isBusy || !cliStatus.binaryPath}
+                      className="flex items-center justify-center gap-1.5 rounded-md border border-dashed p-2 text-xs font-medium transition-colors hover:bg-white/5 disabled:opacity-50"
+                      style={{
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-secondary)',
+                      }}
+                    >
+                      <Plus className="size-3.5" />
+                      {addingAnthropicAccount
+                        ? 'Opening sign-in in your browser…'
+                        : 'Add Anthropic account'}
+                    </button>
+                  ) : null}
                 </Fragment>
               );
             }
