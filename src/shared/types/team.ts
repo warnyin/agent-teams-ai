@@ -42,6 +42,12 @@ export interface TeamConfig {
   projectPathHistory?: string[];
   leadSessionId?: string;
   sessionHistory?: string[];
+  /**
+   * Per-team Claude account binding: the `CLAUDE_CONFIG_DIR` this team's runtime should
+   * use. Null/undefined means use the app's global/default account. The default account
+   * must bind to null (never `~/.claude`) — see issue #27.
+   */
+  claudeConfigDirBinding?: string | null;
   /** ISO timestamp — soft delete marker. If set, the team is considered deleted. */
   deletedAt?: string;
 }

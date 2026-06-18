@@ -489,6 +489,7 @@ import {
   readBootstrapRealTaskSubmissionState,
   readBootstrapRuntimeState,
 } from './TeamBootstrapStateReader';
+import { resolveTeamClaudeConfigDir } from './teamClaudeConfigDir';
 import { TeamConfigReader } from './TeamConfigReader';
 import { TeamInboxReader } from './TeamInboxReader';
 import { TeamInboxWriter } from './TeamInboxWriter';
@@ -2413,6 +2414,12 @@ interface TeamRuntimeAuthContext {
   teamName?: string;
   authMaterialId?: string;
   allowAnthropicApiKeyHelper?: boolean;
+  /**
+   * Explicit per-team Claude account binding (a `CLAUDE_CONFIG_DIR`). Takes precedence
+   * over the team's persisted `claudeConfigDirBinding`; used by flows (e.g. create) where
+   * the config may not be persisted yet. Null/undefined falls back to persisted/global.
+   */
+  claudeConfigDir?: string | null;
 }
 
 interface ProvisioningEnvResolution {
@@ -37639,6 +37646,22 @@ export class TeamProvisioningService {
       ? (process.env.COMSPEC ?? 'powershell.exe')
       : shellEnv.SHELL?.trim() || process.env.SHELL?.trim() || '/bin/zsh';
 
+    // Resolve which Claude account (CLAUDE_CONFIG_DIR) this team's runtime should use.
+    // Precedence: explicit per-call binding > the team's persisted binding > global config.
+    const explicitClaudeConfigBinding = options?.teamRuntimeAuth?.claudeConfigDir ?? null;
+    let teamClaudeConfigBinding: string | null = explicitClaudeConfigBinding;
+    if (!teamClaudeConfigBinding && options?.teamRuntimeAuth?.teamName) {
+      const persistedTeamConfig = await this.readConfigSnapshot(
+        options.teamRuntimeAuth.teamName
+      ).catch(() => null);
+      teamClaudeConfigBinding = persistedTeamConfig?.claudeConfigDirBinding ?? null;
+    }
+    const claudeConfigResolution = resolveTeamClaudeConfigDir({
+      binding: teamClaudeConfigBinding,
+      globalConfigDir: getClaudeBasePath(),
+      defaultConfigDir: getAutoDetectedClaudeBasePath(),
+    });
+
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       ...shellEnv,
@@ -37647,11 +37670,11 @@ export class TeamProvisioningService {
       USER: user,
       LOGNAME: shellEnv.LOGNAME?.trim() || process.env.LOGNAME?.trim() || user,
       TERM: shellEnv.TERM?.trim() || process.env.TERM?.trim() || 'xterm-256color',
-      // Only set CLAUDE_CONFIG_DIR when the user configured a custom path.
-      // Setting it to the default ~/.claude changes the macOS Keychain namespace
-      // for OAuth credential lookup, causing auth failures. (See issue #27)
-      ...(getClaudeBasePath() !== getAutoDetectedClaudeBasePath()
-        ? { CLAUDE_CONFIG_DIR: getClaudeBasePath() }
+      // Only set CLAUDE_CONFIG_DIR for a non-default account. Setting it to the default
+      // ~/.claude changes the macOS Keychain namespace for OAuth credential lookup,
+      // causing auth failures. (See issue #27)
+      ...(claudeConfigResolution.shouldSetConfigDirEnv
+        ? { CLAUDE_CONFIG_DIR: claudeConfigResolution.configDir }
         : {}),
       CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
     };
@@ -37752,7 +37775,7 @@ export class TeamProvisioningService {
           teamName: teamRuntimeAuth.teamName!,
           authMaterialId: teamRuntimeAuth.authMaterialId!,
           apiKey,
-          baseClaudeDir: getClaudeBasePath(),
+          baseClaudeDir: claudeConfigResolution.configDir,
         });
         try {
           await verifyAnthropicTeamApiKeyHelperMaterial({
