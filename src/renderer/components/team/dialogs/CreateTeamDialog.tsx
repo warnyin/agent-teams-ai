@@ -6,6 +6,11 @@ import {
   resolveAnthropicRuntimeSelection,
 } from '@features/anthropic-runtime-profile/renderer';
 import {
+  ClaudeAccountPicker,
+  toAccountOptionViewModels,
+  useClaudeAccounts,
+} from '@features/claude-account/renderer';
+import {
   mergeCodexCliStatusWithSnapshot,
   useCodexAccountSnapshot,
 } from '@features/codex-account/renderer';
@@ -512,6 +517,38 @@ export const CreateTeamDialog = ({
   const [selectedEffort, setSelectedEffortRaw] = useState(getStoredCreateTeamEffort);
   const [selectedFastMode, setSelectedFastModeRaw] = useState<TeamFastMode>(getStoredTeamFastMode);
   const [anthropicRuntimeNotice, setAnthropicRuntimeNotice] = useState<string | null>(null);
+
+  // Per-team Claude account binding. null = the default account (~/.claude).
+  const [selectedClaudeConfigDir, setSelectedClaudeConfigDir] = useState<string | null>(null);
+  const claudeAccountsEnabled = open && selectedProviderId === 'anthropic';
+  const {
+    accounts: claudeAccounts,
+    loading: claudeAccountsLoading,
+    error: claudeAccountsError,
+  } = useClaudeAccounts({ enabled: claudeAccountsEnabled });
+  const claudeAccountOptions = useMemo(
+    () => toAccountOptionViewModels(claudeAccounts),
+    [claudeAccounts]
+  );
+  const selectedClaudeAccountId = useMemo(() => {
+    if (selectedClaudeConfigDir) {
+      const match = claudeAccounts.find((account) => account.configDir === selectedClaudeConfigDir);
+      if (match) {
+        return match.id;
+      }
+    }
+    return claudeAccounts.find((account) => account.isDefault)?.id ?? null;
+  }, [claudeAccounts, selectedClaudeConfigDir]);
+  const handleClaudeAccountSelect = useCallback(
+    (accountId: string): void => {
+      const account = claudeAccounts.find((candidate) => candidate.id === accountId);
+      if (!account) {
+        return;
+      }
+      setSelectedClaudeConfigDir(account.isDefault ? null : account.configDir);
+    },
+    [claudeAccounts]
+  );
 
   // Advanced CLI section state (use teamName-derived key for localStorage)
   const advancedKey = useMemo(() => sanitizeTeamName(teamName.trim()) || '_new_', [teamName]);
@@ -1768,6 +1805,8 @@ export const CreateTeamDialog = ({
       prompt: prompt.trim() || undefined,
       providerId: selectedProviderId,
       providerBackendId: selectedProviderBackendId ?? undefined,
+      claudeConfigDirBinding:
+        selectedProviderId === 'anthropic' ? selectedClaudeConfigDir : undefined,
       model: effectiveModel,
       effort: (selectedEffortForCurrentSelection as EffortLevel) || undefined,
       fastMode:
@@ -1789,6 +1828,7 @@ export const CreateTeamDialog = ({
       prompt,
       selectedProviderId,
       selectedProviderBackendId,
+      selectedClaudeConfigDir,
       effectiveModel,
       selectedEffortForCurrentSelection,
       selectedFastMode,
@@ -2350,6 +2390,25 @@ export const CreateTeamDialog = ({
               headerBottom={rosterHeaderBottom}
             />
           </div>
+
+          {selectedProviderId === 'anthropic' && claudeAccountOptions.length > 0 ? (
+            <div
+              className="rounded-lg border border-[var(--color-border-emphasis)] p-4 shadow-sm md:col-span-2"
+              style={{
+                backgroundColor: isLight
+                  ? 'color-mix(in srgb, var(--color-surface-overlay) 24%, white 76%)'
+                  : 'var(--color-surface-overlay)',
+              }}
+            >
+              <ClaudeAccountPicker
+                options={claudeAccountOptions}
+                selectedAccountId={selectedClaudeAccountId}
+                onSelect={handleClaudeAccountSelect}
+                loading={claudeAccountsLoading}
+                error={claudeAccountsError}
+              />
+            </div>
+          ) : null}
 
           <div
             className="rounded-lg border border-[var(--color-border-emphasis)] p-4 shadow-sm md:col-span-2"

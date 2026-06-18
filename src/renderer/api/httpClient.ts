@@ -12,6 +12,7 @@ import {
   createEmptyMemberRuntimeLogTailResponse,
 } from '@features/member-log-stream/contracts';
 
+import type { ClaudeAccountSnapshotDto } from '@features/claude-account/contracts';
 import type {
   CodexAccountSnapshotDto,
   CodexStartChatgptLoginOptions,
@@ -276,6 +277,17 @@ export class HttpAPIClient implements ElectronAPI {
 
   onCodexAccountSnapshotChanged =
     (_callback: (event: unknown, snapshot: CodexAccountSnapshotDto) => void): (() => void) =>
+    () =>
+      undefined;
+
+  getClaudeAccountSnapshot = (): Promise<ClaudeAccountSnapshotDto> =>
+    Promise.reject(new Error('Claude account bridge is unavailable in browser mode'));
+
+  refreshClaudeAccountSnapshot = (): Promise<ClaudeAccountSnapshotDto> =>
+    Promise.reject(new Error('Claude account bridge is unavailable in browser mode'));
+
+  onClaudeAccountSnapshotChanged =
+    (_callback: (event: unknown, snapshot: ClaudeAccountSnapshotDto) => void): (() => void) =>
     () =>
       undefined;
 

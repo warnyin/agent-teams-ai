@@ -23,6 +23,12 @@ import { earlyElectronUserDataMigrationResult } from './bootstrapUserDataMigrati
 import './sentry';
 
 import {
+  type ClaudeAccountFeatureFacade,
+  createClaudeAccountFeature,
+  registerClaudeAccountIpc,
+  removeClaudeAccountIpc,
+} from '@features/claude-account/main';
+import {
   type CodexAccountFeatureFacade,
   createCodexAccountFeature,
   registerCodexAccountIpc,
@@ -925,6 +931,7 @@ let contextRegistry: ServiceContextRegistry;
 let notificationManager: NotificationManager;
 let updaterService: UpdaterService;
 let sshConnectionManager: SshConnectionManager;
+let claudeAccountFeature: ClaudeAccountFeatureFacade | null = null;
 let codexAccountFeature: CodexAccountFeatureFacade | null = null;
 let codexModelCatalogFeature: CodexModelCatalogFeatureFacade | null = null;
 let recentProjectsFeature: RecentProjectsFeatureFacade;
@@ -2277,6 +2284,9 @@ async function initializeServices(): Promise<void> {
         logger.warn(`[Init] Member work sync startup scan failed: ${String(error)}`)
       );
   }, STARTUP_RECOVERY_DELAY_MS + 2_000);
+  claudeAccountFeature = createClaudeAccountFeature({
+    logger: createLogger('Feature:ClaudeAccount'),
+  });
   codexAccountFeature = createCodexAccountFeature({
     logger: createLogger('Feature:CodexAccount'),
     configManager,
@@ -2348,6 +2358,7 @@ async function initializeServices(): Promise<void> {
     teamBackupService ?? undefined,
     launchIoGovernor ?? undefined
   );
+  registerClaudeAccountIpc(ipcMain, claudeAccountFeature);
   registerCodexAccountIpc(ipcMain, codexAccountFeature);
   registerRecentProjectsIpc(ipcMain, recentProjectsFeature);
   registerRuntimeProviderManagementIpc(ipcMain, runtimeProviderManagementFeature);
@@ -2546,6 +2557,8 @@ async function shutdownServices(): Promise<void> {
     codexModelCatalogFeature = null;
     await runShutdownStep('Codex account dispose', () => codexAccountFeature?.dispose());
     codexAccountFeature = null;
+    await runShutdownStep('Claude account dispose', () => claudeAccountFeature?.dispose());
+    claudeAccountFeature = null;
     await runShutdownStep('member work sync dispose', () => memberWorkSyncFeature?.dispose());
     memberWorkSyncFeature = null;
     await runShutdownStep('terminal workspace dispose', () => terminalWorkspaceFeature?.dispose());
@@ -2557,6 +2570,7 @@ async function shutdownServices(): Promise<void> {
 
     await runShutdownStep('IPC handlers cleanup', () => {
       removeIpcHandlers();
+      removeClaudeAccountIpc(ipcMain);
       removeCodexAccountIpc(ipcMain);
       removeRecentProjectsIpc(ipcMain);
       removeRuntimeProviderManagementIpc(ipcMain);
@@ -2601,6 +2615,7 @@ function attachMainWindowToServices(): void {
   ptyTerminalService?.setMainWindow(win);
   teamProvisioningService?.setMainWindow(win);
   codexAccountFeature?.setMainWindow(win);
+  claudeAccountFeature?.setMainWindow(win);
   setEditorMainWindow(win);
   setReviewMainWindow(win);
 }
@@ -2934,6 +2949,7 @@ function createWindow(): void {
       teamProvisioningService.setMainWindow(null);
     }
     codexAccountFeature?.setMainWindow(null);
+    claudeAccountFeature?.setMainWindow(null);
     setEditorMainWindow(null);
     setReviewMainWindow(null);
     cleanupEditorState();

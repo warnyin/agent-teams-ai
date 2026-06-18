@@ -1,0 +1,1 @@
+export { createClaudeAccountBridge } from './createClaudeAccountBridge';

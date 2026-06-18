@@ -20,6 +20,12 @@ export interface TeamMember {
   joinedAt?: number;
   cwd?: string;
   removedAt?: number;
+  /**
+   * Per-member Claude account binding (a CLAUDE_CONFIG_DIR). The orchestrator runtime
+   * reads this from config.json and spawns this teammate under that account. Null = the
+   * default account; undefined = inherit the team's account. (issue #27)
+   */
+  claudeConfigDirBinding?: string | null;
 }
 
 export type TeamMemberMcpScope = 'user' | 'project' | 'local';
@@ -1012,6 +1018,8 @@ export interface TeamLaunchRequest {
   prompt?: string;
   providerId?: TeamProviderId;
   providerBackendId?: TeamProviderBackendId;
+  /** Per-team Claude account binding (a CLAUDE_CONFIG_DIR). Null/undefined = default account. */
+  claudeConfigDirBinding?: string | null;
   model?: string;
   effort?: EffortLevel;
   fastMode?: TeamFastMode;
@@ -1418,6 +1426,8 @@ export interface TeamProvisioningMemberInput {
   effort?: EffortLevel;
   fastMode?: TeamFastMode;
   mcpPolicy?: TeamMemberMcpPolicy;
+  /** Per-member Claude account binding (a CLAUDE_CONFIG_DIR). Null = default account. */
+  claudeConfigDirBinding?: string | null;
 }
 
 export type TeamWorktreeGitBlockReason =
@@ -1448,6 +1458,8 @@ export interface TeamCreateRequest {
   prompt?: string;
   providerId?: TeamProviderId;
   providerBackendId?: TeamProviderBackendId;
+  /** Per-team Claude account binding (a CLAUDE_CONFIG_DIR). Null/undefined = default account. */
+  claudeConfigDirBinding?: string | null;
   model?: string;
   effort?: EffortLevel;
   fastMode?: TeamFastMode;

@@ -102,6 +102,7 @@ import type {
 import type { TerminalAPI } from './terminal';
 import type { TmuxAPI } from './tmux';
 import type { WaterfallData } from './visualization';
+import type { ClaudeAccountElectronApi } from '@features/claude-account/contracts';
 import type { CodexAccountElectronApi } from '@features/codex-account/contracts';
 import type { CodexRuntimeAPI } from '@features/codex-runtime-installer/contracts';
 import type { MemberLogStreamApi } from '@features/member-log-stream/contracts';
@@ -833,7 +834,8 @@ export interface WindowsElevationStatus {
 /**
  * Complete Electron API exposed to the renderer process via preload script.
  */
-export interface ElectronAPI extends RecentProjectsElectronApi, CodexAccountElectronApi {
+export interface ElectronAPI
+  extends RecentProjectsElectronApi, CodexAccountElectronApi, ClaudeAccountElectronApi {
   startup?: AppStartupAPI;
   telemetry: TelemetryAPI;
   getAppVersion: () => Promise<string>;
