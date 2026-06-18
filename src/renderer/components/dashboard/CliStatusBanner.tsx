@@ -7,7 +7,7 @@
  * Only rendered in Electron mode.
  */
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   CODEX_ACCOUNT_STARTUP_IDLE_MAX_DELAY_MS,
@@ -52,6 +52,7 @@ import {
   getProviderTerminalLogoutCommand,
 } from '@renderer/components/runtime/providerTerminalCommands';
 import { useCliInstaller } from '@renderer/hooks/useCliInstaller';
+import { useProviderAccounts } from '@renderer/hooks/useProviderAccounts';
 import {
   loadDashboardCliStatusBannerCollapsed,
   saveDashboardCliStatusBannerCollapsed,
@@ -85,6 +86,7 @@ import {
   Terminal,
 } from 'lucide-react';
 
+import { ProviderAccountCard } from './ProviderAccountCard';
 import {
   getDashboardRateLimitsForProvider,
   isDashboardRateLimitSubscriptionMode,
@@ -93,11 +95,13 @@ import {
 
 import type { DashboardRateLimitItem } from './providerDashboardRateLimits';
 import type { CodexRuntimeStatus } from '@features/codex-runtime-installer/contracts';
+import type { ProviderAccount } from '@renderer/types/providerAccount';
 import type {
   CliProviderAuthMode,
   CliProviderId,
   CliProviderStatus,
   OpenCodeRuntimeStatus,
+  TeamProviderId,
 } from '@shared/types';
 
 // =============================================================================
@@ -529,6 +533,7 @@ function isProviderCountedAsConnected(provider: CliProviderStatus): boolean {
 function formatRuntimeAuthSummary(
   cliStatus: NonNullable<ReturnType<typeof useCliInstaller>['cliStatus']>,
   visibleProviders: readonly CliProviderStatus[],
+  accountsByProvider: Partial<Record<TeamProviderId, ProviderAccount[]>>,
   t: ReturnType<typeof useAppTranslation>['t']
 ): string | null {
   if (isMultimodelRuntimeStatus(cliStatus)) {
@@ -539,8 +544,23 @@ function formatRuntimeAuthSummary(
     if (visibleProviders.every(isPendingMultimodelProviderStatus)) {
       return t('cliStatus.provider.checkingProviders');
     }
-    const denominator = visibleProviders.length;
-    const connected = visibleProviders.filter(isProviderCountedAsConnected).length;
+
+    // Count per provider-account: providers with a multi-account source contribute one
+    // entry per account; others count as a single provider entry.
+    let denominator = 0;
+    let connected = 0;
+    for (const provider of visibleProviders) {
+      const accounts = accountsByProvider[provider.providerId];
+      if (accounts && accounts.length > 0) {
+        denominator += accounts.length;
+        connected += accounts.filter((account) => account.status === 'connected').length;
+      } else {
+        denominator += 1;
+        if (isProviderCountedAsConnected(provider)) {
+          connected += 1;
+        }
+      }
+    }
 
     return t('cliStatus.provider.connectedCount', { connected, denominator });
   }
@@ -846,9 +866,15 @@ const InstalledBanner = ({
   );
   const canOpenExtensions = cliStatus.installed;
   const runtimeLabel = formatRuntimeLabel(cliStatus);
-  const runtimeAuthSummary = formatRuntimeAuthSummary(cliStatus, visibleProviders, t);
   const showCollapseControl = visibleProviders.length > 0;
   const showExpandedContent = !providersCollapsed;
+  const { accountsByProvider } = useProviderAccounts({ enabled: showExpandedContent });
+  const runtimeAuthSummary = formatRuntimeAuthSummary(
+    cliStatus,
+    visibleProviders,
+    accountsByProvider,
+    t
+  );
 
   return (
     <div
@@ -962,6 +988,23 @@ const InstalledBanner = ({
           style={{ borderColor: 'var(--color-border-subtle)' }}
         >
           {visibleProviders.map((provider) => {
+            // Providers with a multi-account source render one card per account (replacing
+            // the single provider card). Others fall through to the single card below.
+            const providerAccounts = accountsByProvider[provider.providerId];
+            if (providerAccounts && providerAccounts.length > 0) {
+              return (
+                <Fragment key={provider.providerId}>
+                  {providerAccounts.map((account) => (
+                    <ProviderAccountCard
+                      key={account.accountId}
+                      account={account}
+                      actionsDisabled={isBusy || !cliStatus.binaryPath}
+                      onRefresh={() => onProviderRefresh(provider.providerId)}
+                    />
+                  ))}
+                </Fragment>
+              );
+            }
             const actionDisabled = isBusy || !cliStatus.binaryPath;
             const runtimeSummary = isConnectionManagedRuntimeProvider(provider)
               ? getProviderCurrentRuntimeSummary(provider, settingsT)
