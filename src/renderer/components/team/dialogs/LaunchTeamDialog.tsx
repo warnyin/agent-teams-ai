@@ -6,6 +6,11 @@ import {
   resolveAnthropicRuntimeSelection,
 } from '@features/anthropic-runtime-profile/renderer';
 import {
+  ClaudeAccountPicker,
+  toAccountOptionViewModels,
+  useClaudeAccounts,
+} from '@features/claude-account/renderer';
+import {
   mergeCodexCliStatusWithSnapshot,
   useCodexAccountSnapshot,
 } from '@features/codex-account/renderer';
@@ -462,6 +467,40 @@ export const LaunchTeamDialog = (props: LaunchTeamDialogProps): React.JSX.Elemen
   });
   const [selectedFastMode, setSelectedFastModeRaw] = useState<TeamFastMode>(getStoredTeamFastMode);
   const [anthropicRuntimeNotice, setAnthropicRuntimeNotice] = useState<string | null>(null);
+
+  // Lead Claude account binding. undefined = keep the team's persisted account (no clobber);
+  // null = default account; a dir = that account.
+  const [leadClaudeConfigDir, setLeadClaudeConfigDir] = useState<string | null | undefined>(
+    undefined
+  );
+  const {
+    accounts: leadClaudeAccounts,
+    loading: leadClaudeAccountsLoading,
+    error: leadClaudeAccountsError,
+  } = useClaudeAccounts({ enabled: open && selectedProviderId === 'anthropic' });
+  const leadClaudeAccountOptions = useMemo(
+    () => toAccountOptionViewModels(leadClaudeAccounts),
+    [leadClaudeAccounts]
+  );
+  const selectedLeadAccountId = useMemo(() => {
+    if (leadClaudeConfigDir) {
+      const match = leadClaudeAccounts.find((account) => account.configDir === leadClaudeConfigDir);
+      if (match) {
+        return match.id;
+      }
+    }
+    return leadClaudeAccounts.find((account) => account.isDefault)?.id ?? null;
+  }, [leadClaudeAccounts, leadClaudeConfigDir]);
+  const handleLeadClaudeAccountSelect = useCallback(
+    (accountId: string): void => {
+      const account = leadClaudeAccounts.find((candidate) => candidate.id === accountId);
+      if (!account) {
+        return;
+      }
+      setLeadClaudeConfigDir(account.isDefault ? null : account.configDir);
+    },
+    [leadClaudeAccounts]
+  );
 
   // ---------------------------------------------------------------------------
   // Launch-only state
@@ -2323,6 +2362,12 @@ export const LaunchTeamDialog = (props: LaunchTeamDialogProps): React.JSX.Elemen
             cwd: effectiveCwd,
             prompt: promptDraft.value.trim() || undefined,
             providerId: selectedProviderId,
+            // Only override the lead account when the user explicitly picked one — otherwise
+            // leave it unset so the team's persisted binding is kept (no clobber).
+            accountBindingByProvider:
+              selectedProviderId === 'anthropic' && leadClaudeConfigDir !== undefined
+                ? { anthropic: leadClaudeConfigDir }
+                : undefined,
             providerBackendId:
               resolveUiOwnedProviderBackendId(
                 selectedProviderId,
@@ -2785,6 +2830,22 @@ export const LaunchTeamDialog = (props: LaunchTeamDialogProps): React.JSX.Elemen
                         <p>{anthropicRuntimeNotice}</p>
                       </div>
                     ) : null}
+                  </div>
+                ) : null}
+
+                {selectedProviderId === 'anthropic' && leadClaudeAccountOptions.length > 0 ? (
+                  <div
+                    className="rounded-lg border p-3"
+                    style={{ borderColor: 'var(--color-border-subtle)' }}
+                  >
+                    <ClaudeAccountPicker
+                      label="Lead Claude account"
+                      options={leadClaudeAccountOptions}
+                      selectedAccountId={selectedLeadAccountId}
+                      onSelect={handleLeadClaudeAccountSelect}
+                      loading={leadClaudeAccountsLoading}
+                      error={leadClaudeAccountsError}
+                    />
                   </div>
                 ) : null}
 
