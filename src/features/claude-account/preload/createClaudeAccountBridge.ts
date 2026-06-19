@@ -1,6 +1,9 @@
 import {
   CLAUDE_ACCOUNT_CREATE_PROFILE,
   CLAUDE_ACCOUNT_GET_SNAPSHOT,
+  CLAUDE_ACCOUNT_GET_USAGE,
+  CLAUDE_ACCOUNT_GET_VALIDATION,
+  CLAUDE_ACCOUNT_RECONNECT,
   CLAUDE_ACCOUNT_REFRESH_SNAPSHOT,
   CLAUDE_ACCOUNT_SNAPSHOT_CHANGED,
   type ClaudeAccountElectronApi,
@@ -22,6 +25,11 @@ export function createClaudeAccountBridge({
       options === undefined
         ? ipcRenderer.invoke(CLAUDE_ACCOUNT_CREATE_PROFILE)
         : ipcRenderer.invoke(CLAUDE_ACCOUNT_CREATE_PROFILE, options),
+    getClaudeAccountUsage: (configDir, force) =>
+      ipcRenderer.invoke(CLAUDE_ACCOUNT_GET_USAGE, configDir, force),
+    getClaudeAccountValidation: (configDir, force) =>
+      ipcRenderer.invoke(CLAUDE_ACCOUNT_GET_VALIDATION, configDir, force),
+    reconnectClaudeAccount: (configDir) => ipcRenderer.invoke(CLAUDE_ACCOUNT_RECONNECT, configDir),
     onClaudeAccountSnapshotChanged: (callback) => {
       ipcRenderer.on(
         CLAUDE_ACCOUNT_SNAPSHOT_CHANGED,

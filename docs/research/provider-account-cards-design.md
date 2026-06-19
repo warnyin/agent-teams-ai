@@ -107,13 +107,19 @@ providers. e.g. "Providers: 5/6 connected" when Anthropic has 4/5 logged-in + Co
 
 Usage (5h / weekly) is per-account and only obtainable by probing each account's runtime:
 
-- anthropic — run `claude-multimodel runtime status --json --provider anthropic --summary`
-  with `CLAUDE_CONFIG_DIR` set per account (the same command `ClaudeMultimodelBridgeService`
-  uses for the active account). Parse `rateLimits.primary/secondary` (see
-  `ClaudeMultimodelBridgeService` mapping: `usedPercent`, `resetsAt`).
-- **Cost**: one runtime spawn per account; the summary probe already times out for a single
-  account, so per-account probing must be **lazy** (only when the panel is expanded),
-  **cached** (≥30s TTL via the feature facade), with a **short timeout** and graceful `N/A`.
+- anthropic — run `claude-multimodel runtime status --json --provider anthropic` with
+  `CLAUDE_CONFIG_DIR` set per account. Parse `providers.anthropic.subscriptionRateLimits`
+  `primary/secondary` (see `ClaudeMultimodelBridgeService` mapping: `usedPercent`,
+  `windowDurationMins`, `resetsAt`).
+- **Use the full status, NOT `--summary`** (implementation note, contradicts the original
+  plan): empirically `--summary` returns `subscriptionRateLimits: null` for a non-active
+  account, so it cannot report per-account usage. The full status returns the account's
+  cached rate-limit windows when present (null when that account has no cached usage yet).
+- **Cost**: one runtime spawn per account; the runtime cold-starts on first spawn and is
+  slower under concurrent probes, so per-account probing is **lazy** (only when the panel is
+  expanded), **cached** (≥30s TTL via the feature facade), **concurrency-capped** in the
+  renderer hook (warms the runtime instead of cold-starting N at once), **incremental** (each
+  card's chips fill in as its probe resolves), with a **bounded timeout** and graceful `N/A`.
 
 This extends the `claude-account` snapshot (or a dedicated usage probe port) — NOT the
 synchronous account list — so the card list renders immediately and usage fills in.

@@ -869,14 +869,35 @@ const InstalledBanner = ({
   const runtimeLabel = formatRuntimeLabel(cliStatus);
   const showCollapseControl = visibleProviders.length > 0;
   const showExpandedContent = !providersCollapsed;
-  const { accountsByProvider, createAccount } = useProviderAccounts({
-    enabled: showExpandedContent,
-  });
+  const { accountsByProvider, createAccount, reconnectAccount, refreshAccount } =
+    useProviderAccounts({
+      enabled: showExpandedContent,
+    });
   const [addingAnthropicAccount, setAddingAnthropicAccount] = useState(false);
+  const [reconnectingAccountId, setReconnectingAccountId] = useState<string | null>(null);
+  const [refreshingAccountId, setRefreshingAccountId] = useState<string | null>(null);
   const handleAddAnthropicAccount = useCallback(() => {
     setAddingAnthropicAccount(true);
     void createAccount('anthropic').finally(() => setAddingAnthropicAccount(false));
   }, [createAccount]);
+  const handleReconnectAccount = useCallback(
+    (account: ProviderAccount) => {
+      setReconnectingAccountId(account.accountId);
+      void reconnectAccount(account.providerId, account.accountId).finally(() =>
+        setReconnectingAccountId(null)
+      );
+    },
+    [reconnectAccount]
+  );
+  const handleRefreshAccount = useCallback(
+    (account: ProviderAccount) => {
+      setRefreshingAccountId(account.accountId);
+      void refreshAccount(account.providerId, account.accountId).finally(() =>
+        setRefreshingAccountId(null)
+      );
+    },
+    [refreshAccount]
+  );
   const runtimeAuthSummary = formatRuntimeAuthSummary(
     cliStatus,
     visibleProviders,
@@ -1006,8 +1027,12 @@ const InstalledBanner = ({
                     <ProviderAccountCard
                       key={account.accountId}
                       account={account}
+                      refreshing={refreshingAccountId === account.accountId}
+                      reconnecting={reconnectingAccountId === account.accountId}
                       actionsDisabled={isBusy || !cliStatus.binaryPath}
-                      onRefresh={() => onProviderRefresh(provider.providerId)}
+                      onRefresh={() => handleRefreshAccount(account)}
+                      onReconnect={() => handleReconnectAccount(account)}
+                      onManage={() => onProviderManage(provider.providerId)}
                     />
                   ))}
                   {provider.providerId === 'anthropic' ? (

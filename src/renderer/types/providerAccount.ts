@@ -2,6 +2,15 @@ import type { TeamProviderId } from '@shared/types';
 
 export type ProviderAccountStatus = 'connected' | 'signed_out' | 'unknown';
 
+/**
+ * Live server-side connectivity verdict, layered on top of the local `status`:
+ * - `invalid` — credentials look present locally but the server rejected them (revoked/closed).
+ * - `valid`   — credentials verified against the server.
+ * - `unknown` — not determinable; the card defers to `status`.
+ * `undefined` means the check has not run yet.
+ */
+export type ProviderAccountConnectivity = 'valid' | 'invalid' | 'unknown';
+
 export interface ProviderAccountUsageWindow {
   /** 0..100 */
   usedPercent: number;
@@ -28,4 +37,6 @@ export interface ProviderAccount {
   isActive: boolean;
   /** Per-account usage; null until probed, undefined = not applicable. */
   usage?: ProviderAccountUsageWindow[] | null;
+  /** Live server-side connectivity verdict; undefined until the check runs. */
+  connectivity?: ProviderAccountConnectivity;
 }

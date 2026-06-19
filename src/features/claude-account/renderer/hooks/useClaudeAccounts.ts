@@ -16,6 +16,8 @@ export interface UseClaudeAccountsResult {
   refresh: () => Promise<void>;
   /** Creates a new `.claude-profile-NN` account and runs login (opens the browser). */
   createProfile: (options?: CreateClaudeAccountProfileOptions) => Promise<void>;
+  /** Re-authenticates an existing account dir and runs login (opens the browser). */
+  reconnect: (configDir: string) => Promise<void>;
 }
 
 /**
@@ -62,6 +64,28 @@ export function useClaudeAccounts(options?: { enabled?: boolean }): UseClaudeAcc
       } catch (nextError) {
         const message =
           nextError instanceof Error ? nextError.message : 'Failed to add Claude account';
+        setError(message);
+        throw nextError instanceof Error ? nextError : new Error(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [active]
+  );
+
+  const reconnect = useCallback(
+    async (configDir: string) => {
+      if (!active) {
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const next = await api.reconnectClaudeAccount(configDir);
+        setSnapshot(next);
+      } catch (nextError) {
+        const message =
+          nextError instanceof Error ? nextError.message : 'Failed to reconnect Claude account';
         setError(message);
         throw nextError instanceof Error ? nextError : new Error(message);
       } finally {
@@ -120,7 +144,8 @@ export function useClaudeAccounts(options?: { enabled?: boolean }): UseClaudeAcc
       error,
       refresh,
       createProfile,
+      reconnect,
     }),
-    [snapshot, loading, error, refresh, createProfile]
+    [snapshot, loading, error, refresh, createProfile, reconnect]
   );
 }
